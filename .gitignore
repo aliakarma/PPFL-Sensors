@@ -71,3 +71,9 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+/data/__MACOSX
+/data/UCI HAR Dataset
+/data/raw
+/data/UCI_HAR_Dataset/train
+/data/UCI_HAR_Dataset/test
+/data/UCI_HAR_Dataset

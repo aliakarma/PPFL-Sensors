@@ -44,13 +44,13 @@ FAST_DEV_OVERRIDES: Dict[str, Any] = {
         "hidden_dims": [64, 32],
     },
     "training": {
-        "rounds": 3,
+        "rounds": 4,
         "local_epochs": 1,
         "batch_size": 16,
     },
     "attack": {
         "collect_rounds": 2,
-        "eval_start_round": 3,
+        "eval_start_round": 4,
     },
 }
 

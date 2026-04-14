@@ -139,58 +139,7 @@ def _run_multi_seed(config_path, override, fast_dev, n_seeds):
         with open(os.path.join(results_dir, "per_seed_results.json"), "w") as f:
             json.dump(summaries, f, indent=2, default=str)
             
-    return summaries        for g in groups:
-            print(f"\n--- Ensemble Groups: {g} ---")
-            ens_override = _parse_set_args(args.set_args or [])
-            ens_override["training"] = {"aggregation": "ensemble", "n_ensemble_groups": g}
-            summaries = _run_multi_seed(args.config, ens_override, args.fast_dev, args.n_seeds)
-            results[g] = summaries
-        
-        print("\n=== Ensemble Evaluation Summary ===")
-        print(f"{'Groups':<10} | {'FL Accuracy':<25} | {'Best Attack Acc':<25} | {'Privacy Score':<25}")
-        print("-" * 90)
-        for g in groups:
-            sums = results[g]
-            fl_accs = [s["final_fl_accuracy"] for s in sums if s.get("final_fl_accuracy") is not None]
-            atk_accs = [s["mean_best_attack_accuracy"] for s in sums if s.get("mean_best_attack_accuracy") is not None]
-            privs = [s["final_privacy_score"] for s in sums if s.get("final_privacy_score") is not None]
-            if fl_accs and atk_accs:
-                print(f"{g:<10} | {np.mean(fl_accs):.4f} ± {np.std(fl_accs):.4f} | {np.mean(atk_accs):.4f} ± {np.std(atk_accs):.4f} | {np.mean(privs):.4f} ± {np.std(privs):.4f}")
-        return 0
-
-    # ── Single seed ────────────────────────────────────────────────
-
-    if args.n_seeds == 1:
-        try:
-            summary = run(args.config, override=override, fast_dev=args.fast_dev)
-            _print_summary(summary)
-            return 0
-        except Exception as exc:
-            logging.exception("Experiment failed: %s", exc)
-            return 1
-
-    # ── Multi-seed ─────────────────────────────────────────────────
-    from utils.config import load_config
-    base_cfg = load_config(args.config, override=override, fast_dev=args.fast_dev)
-    base_seed = base_cfg.logging.seed
-
-    summaries = []
-    for i in range(args.n_seeds):
-        seed = base_seed + i
-        print(f"\n{'='*50}")
-        print(f"  Seed {i+1}/{args.n_seeds}: seed={seed}")
-        print(f"{'='*50}")
-        try:
-            s = run(args.config, override=override, fast_dev=args.fast_dev,
-                    seed_override=seed)
-            summaries.append(s)
-        except Exception as exc:
-            logging.exception("Seed %d failed: %s", seed, exc)
-
-    if summaries:best_
-        _print_multi_seed_summary(summaries)
-    return 0
-
+    return summaries
 
 def _print_summary(summary: dict) -> None:
     print("\n── Run Summary ──────────────────────────────")

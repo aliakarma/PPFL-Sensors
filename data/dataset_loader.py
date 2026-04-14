@@ -406,7 +406,11 @@ def get_client_datasets(config) -> List[ClientDataset]:
         except FileNotFoundError:
             raise RuntimeError("HAR dataset required. Please run scripts/download_har.py to download it.")
     else:
-        raise RuntimeError("HAR dataset required. Set dataset.name='har' in config and run scripts/download_har.py to download it.")
+        logger.warning("Using synthetic dataset instead of HAR.")
+        X_all, y_all, X_test_global, y_test_global = SyntheticLoader(
+            n_samples=getattr(ds_cfg.partition_params, "n_samples", 5000),
+            seed=seed
+        ).load()
 
     # 2. Partition training data
     logger.info("Partitioning %d samples across %d clients using '%s'",

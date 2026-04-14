@@ -75,6 +75,8 @@ class GradientInferenceAttack:
         # To limit memory growth, we store CPU tensors/numpy arrays instead of accumulating graph history
         self._eval_X: List[np.ndarray] = []
         self._eval_y: List[int] = []
+        self._eval_ids: List[str] = []
+        self._train_ids: List[str] = []
 
         logger.info(
             "GradientInferenceAttack: collect_rounds=%d, eval_start=%d, "
@@ -135,6 +137,9 @@ class GradientInferenceAttack:
         X, y = self.tracker.gradient_store.get_train_dataset()
         X_np = self._preprocess(X, fit_pca=True)
         y_np = y.numpy()
+
+        for entry in self.tracker.gradient_store._train_index:
+            self._train_ids.append(f"round_{entry['round']}_client_{entry['client_id']}")
 
         logger.info(
             "Attack training: %d samples, dim=%d (pca=%s), n_clients=%d",

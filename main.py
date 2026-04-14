@@ -57,7 +57,7 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--n-seeds", type=int, default=1,
                         help="Number of seeds to run (report mean±std for N>1)")
-    parser.add_argument("--experiment", type=str, choices=["none", "har-vs-synthetic", "ensemble-eval"], default="none",
+    parser.add_argument("--experiment", type=str, choices=["none", "har-vs-synthetic", "ensemble-eval", "noise-sweep"], default="none",
                         help="Run a specific publication experiment")
     parser.add_argument("--set", nargs="+", metavar="KEY VALUE", dest="set_args")
     parser.add_argument("--results-dir", default="results/logs/")
@@ -103,6 +103,66 @@ def main():
         har_override = _parse_set_args(args.set_args or [])
         har_override["dataset"] = {"name": "har"}
         har_summaries = _run_multi_seed(args.config, har_override, args.fast_dev, args.n_seeds)
+
+    if args.experiment == "noise-sweep":
+        print("\n=== Running Experiment: Noise Sweep (Privacy-Utility Tradeoff) ===\n")
+        noise_levels = [0.0, 0.05, 0.1, 0.2, 0.5, 1.0]
+        results_table = []
+        
+        for sigma in noise_levels:
+            print(f"\n--- Noise Level: sigma={sigma} ---")
+            override_ns = _parse_set_args(args.set_args or [])
+            override_ns["dataset"] = {"name": "har"}
+            override_ns["defense"] = {"noise": {"enabled": True, "sigma": sigma}}
+            
+            summaries = _run_multi_seed(args.config, override_ns, args.fast_dev, args.n_seeds)
+            
+            fl_accs = [s["final_fl_accuracy"] for s in summaries if s.get("final_fl_accuracy") is not None]
+            atk_accs = [s["mean_best_attack_accuracy"] for s in summaries if s.get("mean_best_attack_accuracy") is not None]
+            privs = [s["final_privacy_score"] for s in summaries if s.get("final_privacy_score") is not None]
+            
+            if fl_accs and atk_accs:
+                fl_mean, fl_std = np.mean(fl_accs), np.std(fl_accs)
+                atk_mean, atk_std = np.mean(atk_accs), np.std(atk_accs)
+                priv_mean = np.mean(privs)
+                results_table.append({
+                    "sigma": sigma, "fl_mean": fl_mean, "fl_std": fl_std,
+                    "atk_mean": atk_mean, "atk_std": atk_std, "priv": priv_mean
+                })
+        
+        # Save CSV
+        import csv
+        import os
+        os.makedirs("results", exist_ok=True)
+        csv_path = "results/noise_sweep.csv"
+        with open(csv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["sigma", "fl_acc_mean", "fl_acc_std", "attack_acc_mean", "attack_acc_std", "privacy_score"])
+            for r in results_table:
+                writer.writerow([r["sigma"], r["fl_mean"], r["fl_std"], r["atk_mean"], r["atk_std"], r["priv"]])
+        
+        # Generate plot
+        try:
+            import matplotlib.pyplot as plt
+            os.makedirs("results/plots", exist_ok=True)
+            sigmas = [r["sigma"] for r in results_table]
+            fl_means = [r["fl_mean"] for r in results_table]
+            atk_means = [r["atk_mean"] for r in results_table]
+            
+            plt.figure(figsize=(8, 5))
+            plt.plot(sigmas, fl_means, marker='o', label='FL Accuracy (Utility)')
+            plt.plot(sigmas, atk_means, marker='s', label='Attack Accuracy (Vulnerability)')
+            plt.xlabel('Noise Sigma')
+            plt.ylabel('Accuracy')
+            plt.title('Privacy-Utility Tradeoff (Noise Sweep)')
+            plt.legend()
+            plt.grid(True)
+            plt.savefig("results/plots/privacy_utility_curve.png")
+        except Exception as e:
+            print("Plotting failed:", e)
+
+        print(f"\n=== Noise Sweep Results Saved to {csv_path} ===")
+        return 0
 
     summaries = _run_multi_seed(args.config, override, args.fast_dev, args.n_seeds)
 

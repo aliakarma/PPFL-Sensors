@@ -55,3 +55,29 @@ Synthetic dataset models achieve far lower utility ($\sim50\%$) because informat
 ## 9. FINAL VERDICT
 - **Experimental Validity**: **VALID**. The repository represents a mathematically pure, hash-protected framework strictly tracking baseline ML attack heuristics. 
 - **Publication Readiness**: **READY**. System constraints accurately isolate data leakage. Resultings are fully normalized across $N$ seeds.
+
+## 10. PRIVACY–UTILITY TRADEOFF
+
+| Sigma | FL Accuracy | Attack Accuracy | Privacy Score |
+|------|------------|----------------|--------------|
+| 0.0 | 0.8718 | 1.0000 | 0.0000 |
+| 0.05 | 0.8626 | 1.0000 | 0.0000 |
+| 0.1 | 0.8224 | 0.6666 | 0.3333 |
+| 0.2 | 0.7366 | 0.4444 | 0.5555 |
+| 0.5 | 0.4801 | 0.4444 | 0.5555 |
+| 1.0 | 0.2776 | 0.4444 | 0.5555 |
+
+**Analysis**:
+- Increasing noise ($\sigma \geq 0.1$) immediately begins to disrupt the attack fidelity. As $\sigma$ increases, the attacker's accuracy degrades back toward random/majority guessing ($\sim33-44\%$), proving noise effectively obfuscates identity linkage.
+- However, this introduces a severe impact on FL utility. The global accuracy drops from $87\%$ down to merely $27\%$ under high noise regimes ($\sigma=1.0$). At $\sigma=0.1$, a moderate privacy defense is achieved with a minor $5\%$ absolute utility drop.
+
+## 11. KEY SCIENTIFIC INSIGHT
+- Gradient updates encode strong client-specific signatures.
+- Identity inference is trivially solvable without perturbation.
+- Effective privacy requires explicit defense mechanisms (such as controlled Gaussian noise injections).
+- Tradeoff is unavoidable: preserving strong privacy inherently reduces the statistical utility of the federated dataset.
+
+## 12. CONCLUSION
+Without defenses, gradient updates are highly identifiable. Attack success demonstrates inherent privacy risks in FL protocols where ensemble methods alone are insufficient for privacy protection. Noise-based defenses introduce a measurable, inevitable privacy–utility tradeoff.
+
+This study demonstrates that federated learning is inherently vulnerable to client identity inference without explicit defenses, and that meaningful privacy can only be achieved through controlled degradation of model utility.

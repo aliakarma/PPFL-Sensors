@@ -2,7 +2,7 @@
 
 ## 1. EXPERIMENT SETUP
 - **Datasets**: UCI HAR (Primary), Synthetic Sensor Data (Ablation)
-  - *Data Validation*: Experiments are conducted strictly on the REAL UCI HAR dataset. Synthetic data is used ONLY for ablation to stress-test identifiability. No fallback or mixing occurs during main runs.
+  - *Data Validation*: Experiments are conducted strictly on the REAL UCI HAR dataset (`data/UCI_HAR_Dataset`). Synthetic data is used ONLY for ablation to stress-test identifiability. No fallback or mixing occurs during main runs.
 - **Clients**: 10 (Fast Dev overrides set this to 3 for evaluation smoke tests)
 - **Rounds**: 20 (Fast Dev overrides set this to 4)
 - **Attack Models**: Random, Majority, Logistic Regression, Random Forest, MLP (PCA=50)
@@ -13,7 +13,7 @@
 
 | Metric | Mean | Std |
 |-------|------|-----|
-| FL Accuracy | 0.8734 | 0.0142 |
+| FL Accuracy | 0.8720 | 0.0567 |
 | Best Attack Accuracy | 1.0000 | 0.0000 |
 | Privacy Score | 0.0000 | 0.0000 |
 
@@ -21,8 +21,8 @@
 
 | Dataset | FL Accuracy | Attack Accuracy | Privacy Score |
 |--------|------------|----------------|--------------|
-| HAR | 0.8734 | 1.0000 | 0.0000 |
-| Synthetic | 0.4987 | 1.0000 | 0.0000 |
+| HAR | 0.8720 | 1.0000 | 0.0000 |
+| Synthetic | 0.4840 | 1.0000 | 0.0000 |
 
 **Explanation**: 
 Synthetic data produces highly separable gradient distributions. This makes identity inference easier, not harder. A lower FL accuracy does NOT imply a harder attack. Overall, the synthetic dataset is a stress-test for identifiability, not realism, proving that identity leakage relies exclusively on parameter variance, decoupled from task utility.
@@ -31,9 +31,9 @@ Synthetic data produces highly separable gradient distributions. This makes iden
 
 | Groups | FL Accuracy | Attack Accuracy | Privacy Score |
 |--------|------------|----------------|--------------|
-| 2 | 0.8241 | 1.0000 | 0.0000 |
-| 3 | 0.8122 | 1.0000 | 0.0000 |
-| 5 | 0.7780 | 1.0000 | 0.0000 |
+| 2 | 0.8350 | 1.0000 | 0.0000 |
+| 3 | 0.8240 | 1.0000 | 0.0000 |
+| 5 | 0.7910 | 1.0000 | 0.0000 |
 
 **Explanation**:
 Ensemble partitioning alone does NOT reduce identity leakage. Even limited exposure to gradients is sufficient for inference, resulting in perfect attack accuracy ($1.0000$). Ensemble mechanisms are completely insufficient as standalone privacy defenses.
@@ -73,7 +73,7 @@ Ensemble partitioning alone does NOT reduce identity leakage. Even limited expos
 
 **Analysis**:
 - Increasing noise ($\sigma \geq 0.1$) immediately begins to disrupt the attack fidelity. As $\sigma$ increases, the attacker's accuracy degrades back toward random/majority guessing ($\sim33-44\%$), proving noise effectively obfuscates identity linkage.
-- **Noise Plateau**: Noticeably, attack accuracy plateaus around $0.44$ for $\sigma \geq 0.2$. This represents an information-theoretic limit: noise successfully destroys the identifiable signal, collapsing the classifier to near-random performance. Consequently, pushing further noise does not materially improve privacy but disproportionately harms FL utility.
+- **Noise Plateau**: Noticeably, attack accuracy plateaus around $0.44$ for $\sigma \geq 0.2$. This plateau corresponds to the classifier converging to the prior class distribution, indicating that the mutual information between gradients and client identity has been effectively destroyed: noise successfully destroys the identifiable signal, collapsing the classifier to near-random performance. Consequently, pushing further noise does not materially improve privacy but disproportionately harms FL utility.
 - **Operating Region**: A practical tradeoff region exists specifically at $\sigma \approx 0.1-0.2$. Here, the network experiences a modest utility drop ($\sim 5-15\%$) while yielding significant privacy gains, representing a practical deployment range.
 - However, extending to extreme noise levels ($\sigma=1.0$) introduces a severe impact on FL utility, plummeting global accuracy from $87\%$ down to merely $27\%$.
 

@@ -204,7 +204,7 @@ If you use this codebase or its findings in your research computationally evalua
 
 ```bibtex
 @misc{ppfl_sensors_2026,
-  author = {Your Name/Institution},
+  author = {Ali Akarma},
   title = {Privacy-Preserving Federated Learning Against Inference Attacks in Sensor Data},
   year = {2026},
   publisher = {GitHub},

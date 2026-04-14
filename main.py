@@ -104,6 +104,24 @@ def main():
         har_override["dataset"] = {"name": "har"}
         har_summaries = _run_multi_seed(args.config, har_override, args.fast_dev, args.n_seeds)
 
+        # Run Synthetic
+        print("--- Synthetic Dataset ---")
+        syn_override = _parse_set_args(args.set_args or [])
+        syn_override["dataset"] = {"name": "synthetic", "synthetic": {"samples_per_client": 100, "n_features": 561, "n_classes": 6}}
+        syn_summaries = _run_multi_seed(args.config, syn_override, args.fast_dev, args.n_seeds)
+        return
+
+    if args.experiment == "ensemble-eval":
+        print("\n=== Running Experiment: Ensemble Eval ===\n")
+        from utils.config import load_config
+        
+        for g in [2, 3, 5]:
+            print(f"--- Ensemble groups: {g} ---")
+            ens_override = _parse_set_args(args.set_args or [])
+            ens_override["training"] = {"aggregation": "ensemble", "n_ensemble_groups": g}
+            _run_multi_seed(args.config, ens_override, args.fast_dev, args.n_seeds)
+        return
+
     if args.experiment == "noise-sweep":
         print("\n=== Running Experiment: Noise Sweep (Privacy-Utility Tradeoff) ===\n")
         noise_levels = [0.0, 0.05, 0.1, 0.2, 0.5, 1.0]

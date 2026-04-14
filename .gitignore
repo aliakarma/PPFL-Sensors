@@ -38,13 +38,8 @@ data/raw/*.tar.gz
 
 # ── Experiment outputs (large; not version-controlled) ───────────
 results/logs/*/              # individual run directories
-results/plots/*.png
-results/plots/*.pdf
-results/plots/*.csv
 # Keep directory structure
 !results/logs/.gitkeep
-!results/plots/.gitkeep
-
 # ── PyTorch / model artefacts ────────────────────────────────────
 *.pt
 *.pth

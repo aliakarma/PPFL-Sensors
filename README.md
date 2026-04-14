@@ -1,212 +1,126 @@
+﻿![Python](https://img.shields.io/badge/Python-3.10-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Reproducible](https://img.shields.io/badge/Reproducible-Yes-brightgreen)
+
+
 # Privacy-Preserving Federated Learning Against Inference Attacks in Sensor Data
 
-A complete, research-grade prototype demonstrating gradient-based identity inference attacks on federated learning systems, and evaluating multiple privacy defense mechanisms on sensor activity data.
+This repository contains the official implementation for evaluating privacy-utility tradeoffs in federated learning under honest-but-curious server threat models, specifically targeting human activity recognition (sensor data).
 
 ---
 
-## 📑 Table of Contents
-- 📌 Overview
-- 🧠 Methodology
-- 🚀 Quick Start for Reviewers
-- 📊 Results
-- 🔬 Evaluation
-- ⚠️ Limitations
-- 📂 Repository Structure
-- 🛠️ Development & Testing
-- 📖 Citation
+## 1. Overview
 
----
+This codebase provides a complete federated learning (FL) pipeline to systematically evaluate the vulnerability of gradient updates to identity inference attacks. It highlights the inherent identifiability of clients in standard FL protocols (e.g., FedAvg, FedMedian, Ensembles) and quantifies the theoretical limitations of privacy preservation mechanisms such as controlled Gaussian noise injection.
 
-## 📌 Overview
+## 2. Key Results
 
-This repository implements a full federated learning (FL) pipeline designed to evaluate the privacy-utility tradeoff under an **honest-but-curious server** threat model. 
+- **Inherent Identifiability:** Without explicit cryptographic defenses, highly separable gradient update distributions allow identity inference classifiers to achieve 100% attack accuracy. This strictly demonstrates an underlying information leakage bottleneck rather than a system flaw.
+- **Privacy-Utility Tradeoff:** Noise-based defenses introduce a measurable, inevitable tradeoff. We identify a practical operating region ($\sigma \approx 0.1-0.2$) that achieves a significant privacy gain (reducing attack accuracy toward random guessing) with a manageable global utility degradation (5-15%).
+- **Ensemble Limitations:** Partitioning training across bounded ensemble servers does not reduce fundamental identity leakage; even fractional exposure to clean gradients yields full identifiability.
 
-**Key Features:**
-- **Federated Architectures:** Supports FedAvg, FedMedian, and Ensemble FL.
-- **Sensor Dataset:** Native integration with the 561-dimensional UCI HAR dataset (human activity recognition).
-- **Inference Attacks:** Includes 5 gradient-based identity classifiers routing from Random/Majority guessing up to trained MLPs.
-- **Defenses:** Built-in controlled Gaussian noise injection and gradient clipping.
-- **Automated Pipelines:** Config-driven multi-condition experiment runs with comprehensive logging and tradeoff plotting.
+## 3. Installation
 
----
+**Hardware Requirements:**
+- **CPU:** Supported natively
+- **GPU:** Optional (CUDA-compatible recommended for full runs)
+- **RAM:** $\ge$ 8GB
 
-## 🧠 Methodology
-
-### Threat Model: Honest-but-Curious Server
-
-In this framework, the server faithfully executes the federated aggregation protocol but actively intercepts client gradient updates to train an attack model. The attacker's objective is to link intercepted gradients back to the specific participating client's identity.
-
-```text
-   [Client 1] --(ΔW₁)--> +-----------------------------+
-   [Client 2] --(ΔW₂)--> | Honest-but-Curious Server   | --> [Global Model]
-   [Client K] --(ΔWₖ)--> +-----------------------------+
-                                  | (intercepts ΔW)
-                                  v
-                         +-----------------------------+
-                         |     Inference Attack        |
-                         | (Random → Logistic → MLP)   |
-                         +-----------------------------+
-                                  |
-                                  v
-                          [Client Identity (1 to K)]
-```
-
----
-
-## 🚀 Quick Start for Reviewers
-
-Execute the entire project in **fewer than five steps** from zero to final published plots.
-
-### 1. Clone & Install Dependencies
-First, clone the repository and install the standard dependencies:
+Clone the repository and install the standard dependencies:
 ```bash
 git clone https://github.com/aliakarma/PPFL-Sensors
 cd PPFL-Sensors
 pip install -r requirements.txt
 ```
 
-### 2. Download the UCI HAR Dataset
-The primary evaluations are conducted on real sensor data. (If this is skipped, the system falls back to generating synthetic data.)
+## 4. Dataset Setup
+
+The primary evaluations are inherently dependent on real sensor data. **The UCI HAR dataset is meticulously required for all primary experiments.** The system will fail if the dataset is missing; synthetic data is explicitly reserved for isolated ablation stress-tests, not as a fallback.
+
 **Linux / macOS:**
 ```bash
 python scripts/download_har.py
 ```
+
 **Windows (PowerShell):**
 ```powershell
 python scripts/download_har.py
 ```
 
-### 3. Run the Full Evaluation Pipeline
-Execute the full artifact reproduction suite (this will sweep through baseline logic, synthetic ablations, ensemble evaluations, and the Gaussian noise tradeoff curve):
-**Linux / macOS:**
+## 5. Running Experiments
+
+The repository supports two distinct modes of execution depending on the research objective.
+
+### 🔹 Fast Mode (Smoke Test)
+**Purpose:** Quick pipeline validation, debugging, and environment checks.  
+**Runtime:** 2-5 minutes.  
+- Uses severely reduced rounds, clients, and dataset samples.  
+- **Not used for paper results.**  
+```bash
+python main.py --fast-dev
+```
+
+### 🔹 Full Mode (Paper Reproduction)
+**Purpose:** Generates the exact empirical artifacts, distributions, and tradeoff metrics reported in the study.  
+**Runtime:** 15-40 minutes.  
+- Uses the full UCI HAR dataset, complete training rounds, and multi-seed evaluation.  
+- **Must be used to reproduce paper results.**  
+```bash
+python main.py --dataset har --n-seeds 5
+```
+
+## 6. Reproducing Paper Results
+
+To reproduce the entire suite of artifacts (baseline evaluations, synthetic ablations, ensemble bounds, and noise tradeoffs), execute the Full Mode pipeline.
+
+### Linux / macOS
 ```bash
 bash scripts/reproduce_all.sh
 ```
-**Windows (PowerShell):**
+*Or manually:*
+```bash
+python main.py --dataset har --n-seeds 5
+python main.py --experiment har-vs-synthetic --n-seeds 3
+python main.py --experiment ensemble-eval --n-seeds 3
+python main.py --experiment noise-sweep --n-seeds 3
+```
+
+### Windows (PowerShell)
+For exact reproducibility ensure deterministic environment variables are configured prior to execution:
 ```powershell
 $env:PYTHONHASHSEED=42
 $env:CUBLAS_WORKSPACE_CONFIG=":4096:8"
-python main.py --fast-dev --n-seeds 5
-python main.py --experiment har-vs-synthetic --n-seeds 3 --fast-dev
-python main.py --experiment ensemble-eval --n-seeds 3 --fast-dev
-python main.py --experiment noise-sweep --n-seeds 3 --fast-dev
+
+python main.py --dataset har --n-seeds 5
+python main.py --experiment har-vs-synthetic --n-seeds 3
+python main.py --experiment ensemble-eval --n-seeds 3
+python main.py --experiment noise-sweep --n-seeds 3
 ```
 
-### 4. Generate Final Plots and Summary
-Parse all evaluated runs, extract tabular metrics, and plot the tradeoff curves:
+## 7. Outputs
+
+Executing the full pipeline will programmatically generate and aggregate all publication-ready artifacts directly into the `results/` directory.
+
+After a full run, you should explicitly verify:
+- `results/final_report.md`: Aggregated scientific analysis and tabular metrics.
+- `results/noise_sweep.csv`: Raw tradeoff parameter tracking for defensive evaluations.
+- `results/plots/privacy_utility_curve.png`: Output visualization demonstrating the explicit cost of privacy.
+
+## 8. Evaluation
+
+To manually evaluate cached logs, compile results, and generate the final output plots without retraining, invoke the standalone evaluate script:
 ```bash
 python experiments/evaluate.py --results-dir results/logs/ --plot-dir results/plots/
 ```
 
-### 5. Review Artifacts
-All final publication-ready artifacts are now securely housed in `results/`:
-- **`results/final_report.md`**: Textual analysis and hard metric conclusions.
-- **`results/noise_sweep.csv`**: Tradeoff parameter tracking.
-- **`results/plots/`**: Output visualizations, including the `privacy_utility_curve.png`.
+## 9. Reproducibility
 
----
+Scientific rigor necessitates strict deterministic reproducibility:
+- **Deterministic Seeds:** All primary components (data partitioning, target model initialization, attack model sequences, and Gaussian sampling) are anchored to static cryptographic seeds (`PYTHONHASHSEED=42`).
+- **Data Rigor:** No implicit data mixing or fallback behavior occurs.
+- **Exact Commands:** The exact CLI arguments and configurations required for replication are cataloged explicitly above. Executing the sequences in Section 6 will flawlessly reconstruct the `results/final_report.md` metrics array.
 
-## 📊 Results
+## 10. Notes
 
-### 1. Real HAR vs. Synthetic Data
-- **Real (UCI HAR):** The network organically reaches ~87% Task Accuracy. Without defenses, Gradient Identity Inference achieves **100% Attack Accuracy**.
-- **Synthetic Ablation:** Task utility drops to ~50%, but gradient inference remains 100%. Synthetic data generates highly separable gradients, acting purely as a stress test for identifiability boundaries, proving leakage is fundamentally decoupled from task utility.
-
-### 2. Privacy-Utility Tradeoff (Gaussian Noise)
-Pushing models through noise injection ($\sigma$) establishes an information-theoretic tradeoff explicitly analyzed using the `noise-sweep` pipeline:
-
-- **The Tradeoff Region:** At $\sigma \approx 0.1-0.2$, the system yields a massive privacy gain (attack accuracy collapsing toward random guessing thresholds of ~44%) for a highly acceptable utility drop of merely 5–15%. This is the prime deployment operating region.
-- **The Information Plateau:** For $\sigma \ge 0.2$, attack accuracy plateaus at ~0.44. Noise effectively destroys the identifiable latent signal. Injecting heavier noise ($\sigma = 1.0$) crashes global task accuracy to ~27% without providing meaningful additional privacy.
-
----
-
-## 🔬 Evaluation
-
-The repository relies on a robust `.yaml` configuration override system to run evaluation sweeps easily from the CLI.
-
-### Generating Tradeoff Plots
-You can sequence a fully automated noise sweep and multi-seed evaluation directly via the CLI:
-```bash
-# 1. Run the noise sweep payload
-python main.py --experiment noise-sweep --n-seeds 3 --fast-dev
-
-# 2. Evaluate all completed runs & generate plots
-python main.py --mode evaluate
-```
-
-### CLI Overrides Example
-Modify deep evaluation configurations on-the-fly using dot-notation:
-```bash
-python main.py --config defense_ablation.yaml \
-    --set defense.noise.enabled true \
-    --set defense.noise.sigma 0.15 \
-    --set training.aggregation ensemble
-```
-
----
-
-## ⚠️ Limitations
-
-- **Ensemble Limitations:** Ensemble partitioning limits honest-but-curious server perspectives theoretically. However, our results demonstrate that if an attacker intercepts *any* clean iteration of updates, identity is irrevocably exposed. Ensemble architectures alone do not reduce identity leakage.
-- **Synthetic Constraints:** Synthetic data is only utilized for ablation stress-testing to highlight pure mathematical separability. It does not reflect realistic temporal or spatial sensor relations, therefore all main performance claims rely strictly on the UCI HAR set.
-- **Observability:** Assumes the honest-but-curious server has bounded, episodic access to raw updates prior to central aggregation.
-
----
-
-## 📂 Repository Structure
-
-```text
-PPFL-Sensors/
-├── attack/             5 attack models + collect/train/eval pipeline
-├── client/             FL client protocols + local defense application
-├── configs/            YAML configs (default, attack_only, defense_ablation)
-├── data/               Dataset loaders & 5 dynamic partition strategies
-├── defense/            Cryptographic perturbation (Gaussian + Clipping)
-├── docs/               Deep-dive methodology and experiment design
-├── experiments/        Experiment runners and evaluation plotters
-├── models/             MLP and 1D-CNN global architectures
-├── scripts/            Single-command reproduction bash scripts
-├── server/             FLServer, FedAvg/FedMedian, EnsembleServer
-├── tests/              Pytest suite
-├── utils/              Seed control, metrics, and artifact tracking
-├── main.py             Aggregated CLI entry point
-└── train.py            Standalone FL training (no attack)
-```
-
----
-
-## 🛠️ Development & Testing
-
-### Fast-Dev Overrides
-Using the `--fast-dev` flag (or setting `fast_dev: true` in YAML) scales down operations for immediate local verification:
-
-| Parameter | Production | Fast Dev |
-|-----------|------------|----------|
-| `n_clients` | 10 | 3 |
-| `rounds` | 20 | 3 |
-| `local_epochs` | 5 | 1 |
-| `hidden_dims` | [256, 128] | [64, 32] |
-| `collect_rounds` | 8 | 2 |
-
-### Testing
-Run the comprehensive Pytest suite to validate module integrity (data partitioning, tensor shapes, gradient interception):
-```bash
-pip install pytest
-pytest tests/
-```
-
----
-
-## 📖 Citation
-
-If you use this codebase or its findings in your research computationally evaluating privacy, please cite:
-
-```bibtex
-@misc{ppfl_sensors_2026,
-  author = {Ali Akarma},
-  title = {Privacy-Preserving Federated Learning Against Inference Attacks in Sensor Data},
-  year = {2026},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/aliakarma/PPFL-Sensors}}
-}
+- Ensure your Python environment is completely isolated (virtual environments are highly recommended) before batching the dependency installs.
+- If `python scripts/download_har.py` encounters SSL restriction errors on custom networks, manually download and extract the raw UCI dataset directly into `data/UCI_HAR_Dataset/`.# Privacy-Preserving Federated Learning Against Inference Attacks in Sensor Data

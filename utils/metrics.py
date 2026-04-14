@@ -35,13 +35,13 @@ def compute_f1(y_true: np.ndarray, y_pred: np.ndarray, average: str = "macro") -
     return float(f1_score(y_true, y_pred, average=average, zero_division=0))
 
 
-def compute_privacy_score(attack_accuracy: float) -> float:
-    """privacy_score = 1 − attack_accuracy.  Higher = more private."""
-    return max(0.0, min(1.0, 1.0 - float(attack_accuracy)))
+def compute_privacy_score(best_attack_accuracy: float) -> float:
+    """privacy_score = 1 − best_attack_accuracy.  Higher = more private."""
+    return max(0.0, min(1.0, 1.0 - float(best_attack_accuracy)))
 
 
 def compute_normalized_attacker_advantage(
-    attack_accuracy: float, n_clients: int
+    attack_accuracy: float, baseline_accuracy: float
 ) -> float:
     """
     Normalized Attacker Advantage (NAA).
@@ -50,15 +50,14 @@ def compute_normalized_attacker_advantage(
 
     Interpretation
     --------------
-    0.0  → attacker no better than random (no privacy violation)
+    0.0  → attacker no better than random/baseline (no privacy violation)
     1.0  → attacker identifies every client perfectly
-    Comparable across experiments with different n_clients, unlike privacy_score.
+    Comparable across experiments with different n_clients.
     """
-    random_bl = 1.0 / max(n_clients, 1)
-    denom = 1.0 - random_bl
+    denom = 1.0 - float(baseline_accuracy)
     if denom < 1e-10:
         return 0.0
-    naa = (float(attack_accuracy) - random_bl) / denom
+    naa = (float(attack_accuracy) - float(baseline_accuracy)) / denom
     return max(0.0, min(1.0, naa))
 
 
@@ -75,7 +74,9 @@ class _RoundRecord:
     round_idx: int
     fl_loss: Optional[float] = None
     fl_accuracy: Optional[float] = None
-    attack_accuracy: Optional[float] = None
+    best_attack_accuracy: Optional[float] = None
+    mean_attack_accuracy: Optional[float] = None
+    baseline_accuracy: Optional[float] = None
     attack_accuracy_train: Optional[float] = None   # memorisation check
     privacy_score: Optional[float] = None
     normalized_attacker_advantage: Optional[float] = None
@@ -110,14 +111,18 @@ class MetricsTracker:
     def update_attack(
         self,
         round_idx: int,
-        attack_accuracy: float,
+        best_attack_accuracy: float,
+        mean_attack_accuracy: float,
+        baseline_accuracy: float,
         train_accuracy: Optional[float] = None,
     ) -> None:
         rec = self._get_or_create(round_idx)
-        rec.attack_accuracy = round(attack_accuracy, 6)
-        rec.privacy_score = round(compute_privacy_score(attack_accuracy), 6)
+        rec.best_attack_accuracy = round(best_attack_accuracy, 6)
+        rec.mean_attack_accuracy = round(mean_attack_accuracy, 6)
+        rec.baseline_accuracy = round(baseline_accuracy, 6)
+        rec.privacy_score = round(compute_privacy_score(best_attack_accuracy), 6)
         rec.normalized_attacker_advantage = round(
-            compute_normalized_attacker_advantage(attack_accuracy, self.n_clients), 6
+            compute_normalized_attacker_advantage(best_attack_accuracy, baseline_accuracy), 6
         )
         if train_accuracy is not None:
             rec.attack_accuracy_train = round(train_accuracy, 6)
@@ -130,26 +135,23 @@ class MetricsTracker:
 
     def summary(self) -> Dict:
         fl_accs = [r.fl_accuracy for r in self.records if r.fl_accuracy is not None]
-        atk_accs = [r.attack_accuracy for r in self.records if r.attack_accuracy is not None]
+        best_atk_accs = [r.best_attack_accuracy for r in self.records if r.best_attack_accuracy is not None]
         naa_vals = [r.normalized_attacker_advantage for r in self.records
                     if r.normalized_attacker_advantage is not None]
 
         best_fl_acc = max(fl_accs) if fl_accs else None
         final_fl_acc = fl_accs[-1] if fl_accs else None
-        mean_atk_acc = float(np.mean(atk_accs)) if atk_accs else None
+        mean_best_atk_acc = float(np.mean(best_atk_accs)) if best_atk_accs else None
         mean_naa = float(np.mean(naa_vals)) if naa_vals else None
-        final_privacy = compute_privacy_score(mean_atk_acc) if mean_atk_acc is not None else None
+        final_privacy = compute_privacy_score(mean_best_atk_acc) if mean_best_atk_acc is not None else None
         random_bl = random_baseline_accuracy(self.n_clients)
 
         return {
             "best_fl_accuracy": best_fl_acc,
             "final_fl_accuracy": final_fl_acc,
-            "mean_attack_accuracy": mean_atk_acc,
+            "mean_best_attack_accuracy": mean_best_atk_acc,
             "mean_normalized_attacker_advantage": mean_naa,
             "final_privacy_score": final_privacy,
             "random_baseline_attack_accuracy": random_bl,
-            "attack_vs_random": (
-                round(mean_atk_acc - random_bl, 6) if mean_atk_acc is not None else None
-            ),
             "total_rounds": len(self.records),
         }

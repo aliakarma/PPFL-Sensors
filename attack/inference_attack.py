@@ -72,6 +72,7 @@ class GradientInferenceAttack:
         self._train_accuracies: Dict[str, float] = {}
 
         # Accumulate eval-phase samples for evaluate_all_attack_models()
+        # To limit memory growth, we store CPU tensors/numpy arrays instead of accumulating graph history
         self._eval_X: List[np.ndarray] = []
         self._eval_y: List[int] = []
 
@@ -188,22 +189,37 @@ class GradientInferenceAttack:
                 self._train_accuracies.get(name, 0.0), 6
             )
 
-        accs = [results[f"attack_acc_{n}"] for n in self._model_names
-                if f"attack_acc_{n}" in results]
-        mean_acc = float(np.mean(accs)) if accs else 0.0
-        random_bl = random_baseline_accuracy(self._n_clients)
+        baseline_attacks = ["random", "majority"]
+        real_attacks = [n for n in self._model_names if n not in baseline_attacks]
+        baseline_models = [n for n in self._model_names if n in baseline_attacks]
 
+        accs_real = [results[f"attack_acc_{n}"] for n in real_attacks if f"attack_acc_{n}" in results]
+        accs_base = [results[f"attack_acc_{n}"] for n in baseline_models if f"attack_acc_{n}" in results]
+
+        best_acc = float(np.max(accs_real)) if accs_real else 0.0
+        
+        # Check for attack overfitting
+        best_train_acc = float(np.max([results[f"attack_acc_{n}_train"] for n in real_attacks if f"attack_acc_{n}_train" in results])) if accs_real else 0.0
+        gap = best_train_acc - best_acc
+        if gap > 0.2:
+            logger.warning("ATTACK OVERFITTING WARNING: Best Attack Train Acc=%.4f vs Test Acc=%.4f (Gap=%.4f > 0.2)",
+                           best_train_acc, best_acc, gap)
+
+        mean_acc = float(np.mean(accs_real)) if accs_real else 0.0
+        base_acc = float(np.mean(accs_base)) if accs_base else random_baseline_accuracy(self._n_clients)
+
+        results["best_attack_accuracy"] = round(best_acc, 6)
         results["mean_attack_accuracy"] = round(mean_acc, 6)
-        results["privacy_score"] = round(compute_privacy_score(mean_acc), 6)
+        results["baseline_accuracy"] = round(base_acc, 6)
+        results["privacy_score"] = round(compute_privacy_score(best_acc), 6)
         results["normalized_attacker_advantage"] = round(
-            compute_normalized_attacker_advantage(mean_acc, self._n_clients), 6
+            compute_normalized_attacker_advantage(best_acc, base_acc), 6
         )
-        results["random_baseline"] = round(random_bl, 6)
 
         logger.info(
-            "Round %d attack eval: mean_acc=%.4f privacy=%.4f naa=%.4f (random=%.4f)",
-            round_idx, mean_acc, results["privacy_score"],
-            results["normalized_attacker_advantage"], random_bl,
+            "Round %d attack eval: best_acc=%.4f mean_acc=%.4f base=%.4f privacy=%.4f naa=%.4f",
+            round_idx, best_acc, mean_acc, base_acc, results["privacy_score"],
+            results["normalized_attacker_advantage"]
         )
         self.tracker.log_attack(round_idx, results)
         return results

@@ -144,8 +144,10 @@ def run(config_path: str, override: dict = None, fast_dev: bool = False,
             elif round_idx >= eval_start_round:
                 atk_results = attack.evaluate(round_idx, updates)
                 if atk_results:
+                    best_acc = atk_results.get("best_attack_accuracy", 0.0)
                     mean_acc = atk_results.get("mean_attack_accuracy", 0.0)
-                    metrics.update_attack(round_idx, mean_acc)
+                    base_acc = atk_results.get("baseline_accuracy", 0.0)
+                    metrics.update_attack(round_idx, best_acc, mean_acc, base_acc)
 
         run_log.info(
             "Round %d/%d  fl_acc=%.4f  fl_loss=%.4f",

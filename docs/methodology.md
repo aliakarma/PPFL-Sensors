@@ -1,4 +1,28 @@
-# Methodology
+# Attacker Model and Methodology Verification
+
+## Attacker Model
+
+This framework explicitly defines the experimental capabilities and limitations of the simulated adversary attempting Client Identity Inference attacks in federated learning environments.
+
+### 1. Attacker Type
+- **Honest-but-Curious Server**: The attacker observes all information legally transmitted by clients to the central aggregator, but does not modify the federated learning protocol or inject malicious weights to boost their attack.
+- **Group-Level Observer (Ensemble Scenario)**: In cases where the framework utilizes `EnsembleServer` defensive aggregation, the attacker is scoped to observe *only* the updates collected for the currently aggregating sub-model group in the current round. They do not have omniscient visibility across all parallel sub-models simultaneously unless they have compromised the entire aggregation cluster. 
+
+### 2. Visibility and Leakage Barriers
+- **Non-Ensemble Visibility**: 100% of participating clients' updates are logged by the attacker in the given round.
+- **Ensemble Visibility**: Only clients in `group_clients[attacker_group_idx]` are visible during the round. Gradients from out-of-group clients cannot be accessed.
+- **Temporal Strictness**: Gradients seen during rounds 1 to $K$ (`collect_rounds`) are strictly separated into an isolated feature store where the attack models are trained. Under no circumstances does the evaluation phase permit the attacker to train on gradients from evaluating rounds.
+
+### 3. Objective
+- **Client Identity Inference**: To accurately re-identify the source client ID from an observed, potentially defended, gradient update. The attacker uses various classifying heads trained on previous $K$ rounds of uploads to guess the source ID.
+
+## Threat Model Validation Metrics
+
+Our measurement of attack success explicitly isolates real classifier implementations from baseline guess thresholds:
+*   `best_attack_accuracy`: $\max_{m \in real\_attacks} Acc(m)$, assessing the strongest algorithmic threat.
+*   `baseline_accuracy`: $\mathbb{E}_{m \in baseline\_attacks} [Acc(m)]$, providing the random/majority guesswork threshold.
+*   `privacy_score`: redefined robustly as $1 - best\_attack\_accuracy$, bounding privacy purely by the worst-case deanonymization exposure.
+*   `normalized_attacker_advantage (NAA)`: normalizes the strongest algorithmic improvement *over* the baseline, ensuring values are directly comparable irrespective of variations in `n_clients`.
 
 ## 1. Federated Learning Setup
 

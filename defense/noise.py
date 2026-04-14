@@ -1,13 +1,13 @@
 """
 defense/noise.py
 ================
-Differential-privacy-style Gaussian noise injection.
+Noise-based privacy defense.
 
 The standard Gaussian mechanism adds N(0, sigma²) noise to each element of
 the (already clipped) gradient, where sigma is calibrated relative to the
 L2 sensitivity (= max_norm after clipping).
 
-Reference: Dwork & Roth (2014), Abadi et al. "Deep Learning with DP" (2016).
+Reference: Dwork & Roth (2014), Abadi et al. (2016).
 """
 
 import logging
@@ -57,7 +57,7 @@ def add_gaussian_noise(
     grad_dict  : OrderedDict of named gradient tensors
     sigma      : noise standard deviation.
                  If ``clip_norm`` is provided, the effective noise std is
-                 ``sigma * clip_norm`` (standard DP parameterisation).
+                 ``sigma * clip_norm`` (standard noise parameterisation).
     clip_norm  : optional L2 clip threshold; multiplies ``sigma`` when given.
 
     Returns

@@ -7,8 +7,7 @@ A complete, research-grade prototype demonstrating gradient-based identity infer
 ## 📑 Table of Contents
 - 📌 Overview
 - 🧠 Methodology
-- ⚙️ Installation
-- 🚀 Quick Start
+- 🚀 Quick Start for Reviewers
 - 📊 Results
 - 🔬 Evaluation
 - ⚠️ Limitations
@@ -54,11 +53,12 @@ In this framework, the server faithfully executes the federated aggregation prot
 
 ---
 
-## ⚙️ Installation
+## 🚀 Quick Start for Reviewers
+
+Execute the entire project in **fewer than five steps** from zero to final published plots.
 
 ### 1. Clone & Install Dependencies
 First, clone the repository and install the standard dependencies:
-
 ```bash
 git clone https://github.com/aliakarma/PPFL-Sensors
 cd PPFL-Sensors
@@ -66,44 +66,43 @@ pip install -r requirements.txt
 ```
 
 ### 2. Download the UCI HAR Dataset
-The primary evaluations are conducted on real sensor data. 
-
+The primary evaluations are conducted on real sensor data. (If this is skipped, the system falls back to generating synthetic data.)
 **Linux / macOS:**
 ```bash
-cd data/raw/
-wget https://archive.ics.uci.edu/ml/machine-learning-databases/00240/UCI%20HAR%20Dataset.zip
-unzip "UCI HAR Dataset.zip"
-cd ../..
+python scripts/download_har.py
 ```
-
 **Windows (PowerShell):**
 ```powershell
-cd data\raw\
-Invoke-WebRequest -Uri "https://archive.ics.uci.edu/ml/machine-learning-databases/00240/UCI%20HAR%20Dataset.zip" -OutFile "UCI HAR Dataset.zip"
-Expand-Archive -Path "UCI HAR Dataset.zip" -DestinationPath "."
-cd ..\..
+python scripts/download_har.py
 ```
-*(Note: If the dataset is absent or download fails, the code will automatically fall back to generating synthetic data.)*
 
----
-
-## 🚀 Quick Start
-
-Ensure your setup is working correctly using a minimal smoke test.
-
-### Run a Smoke Test (`fast-dev`)
-Executes 3 FL rounds with 3 clients using a minimal model architecture (completes in < 60 seconds).
-
+### 3. Run the Full Evaluation Pipeline
+Execute the full artifact reproduction suite (this will sweep through baseline logic, synthetic ablations, ensemble evaluations, and the Gaussian noise tradeoff curve):
+**Linux / macOS:**
 ```bash
-python main.py --fast-dev
+bash scripts/reproduce_all.sh
+```
+**Windows (PowerShell):**
+```powershell
+$env:PYTHONHASHSEED=42
+$env:CUBLAS_WORKSPACE_CONFIG=":4096:8"
+python main.py --fast-dev --n-seeds 5
+python main.py --experiment har-vs-synthetic --n-seeds 3 --fast-dev
+python main.py --experiment ensemble-eval --n-seeds 3 --fast-dev
+python main.py --experiment noise-sweep --n-seeds 3 --fast-dev
 ```
 
-### Run Baseline Experiment
-Executes the full default experiment (no defenses) to establish peak baseline utility and maximum vulnerability:
-
+### 4. Generate Final Plots and Summary
+Parse all evaluated runs, extract tabular metrics, and plot the tradeoff curves:
 ```bash
-python main.py --config configs/default.yaml
+python experiments/evaluate.py --results-dir results/logs/ --plot-dir results/plots/
 ```
+
+### 5. Review Artifacts
+All final publication-ready artifacts are now securely housed in `results/`:
+- **`results/final_report.md`**: Textual analysis and hard metric conclusions.
+- **`results/noise_sweep.csv`**: Tradeoff parameter tracking.
+- **`results/plots/`**: Output visualizations, including the `privacy_utility_curve.png`.
 
 ---
 

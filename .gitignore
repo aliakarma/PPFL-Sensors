@@ -72,3 +72,12 @@ htmlcov/
 /data/UCI_HAR_Dataset/train
 /data/UCI_HAR_Dataset/test
 /data/UCI_HAR_Dataset
+
+# --- Strict Publication Cleanliness ---
+results/logs/
+!results/plots/
+!results/noise_sweep.csv
+!results/final_report.md
+temp_*.py
+read_all*.py
+*.jsonl

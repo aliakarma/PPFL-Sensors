@@ -1,0 +1,75 @@
+# configs/default.yaml
+# =====================
+# Baseline FL experiment: no defense, attack enabled.
+#
+# IMPORTANT: partition_strategy is Dirichlet (alpha=0.3) by default.
+# IID is NOT used as the primary condition because IID clients have identical
+# data distributions — gradients differ only by mini-batch noise, making
+# identity inference meaningless.  IID is provided as an ablation only.
+
+fast_dev: false
+
+dataset:
+  name: synthetic           # "har" requires UCI HAR in data/raw/
+  path: data/raw/
+  n_clients: 10
+  partition_strategy: dirichlet   # PRIMARY: non-IID, realistic threat
+  partition_params:
+    alpha: 0.3              # lower = more heterogeneity; 0.3 is standard in FL literature
+    classes_per_client: 2   # used only by pathological strategy
+    beta: 0.5               # used only by quantity_skew strategy
+    n_samples: 5000
+
+model:
+  arch: mlp                 # mlp | cnn
+  input_dim: 561
+  hidden_dims: [256, 128]
+  num_classes: 6
+  dropout: 0.3
+
+training:
+  rounds: 20
+  local_epochs: 5
+  batch_size: 32
+  lr: 0.01
+  optimizer: sgd
+  momentum: 0.9
+  aggregation: fedavg       # fedavg | fedmedian | ensemble
+  device: auto
+  checkpoint_every: 5       # save global model every N rounds
+
+  # Ensemble-specific (ignored unless aggregation=ensemble)
+  n_ensemble_groups: 3
+  ensemble_strategy: round_robin
+  ensemble_predict: average_logits
+
+defense:
+  noise:
+    enabled: false
+    sigma: 0.01
+  clipping:
+    enabled: false
+    max_norm: 1.0
+
+attack:
+  enabled: true
+  model:
+    - random
+    - majority
+    - logistic
+    - rf
+    - mlp
+  collect_rounds: 8
+  eval_start_round: 9
+  grad_norm: l2
+  pca_components: 50        # reduce gradient dim before attack (0 = disabled)
+  mlp_hidden_dim: 128
+  mlp_epochs: 30
+  gradient_store:
+    storage_type: raw       # raw | topk
+    topk_ratio: 0.1
+
+logging:
+  log_dir: results/logs/
+  plot_dir: results/plots/
+  seed: 42

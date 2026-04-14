@@ -1,0 +1,64 @@
+# configs/attack_only.yaml
+# =========================
+# Attack-only baseline: no defense, all 5 attack models, Dirichlet non-IID.
+# Use this to measure the maximum possible attack success rate.
+
+fast_dev: false
+
+dataset:
+  name: synthetic
+  path: data/raw/
+  n_clients: 10
+  partition_strategy: dirichlet
+  partition_params:
+    alpha: 0.3
+    n_samples: 5000
+
+model:
+  arch: mlp
+  input_dim: 561
+  hidden_dims: [256, 128]
+  num_classes: 6
+  dropout: 0.3
+
+training:
+  rounds: 20
+  local_epochs: 5
+  batch_size: 32
+  lr: 0.01
+  optimizer: sgd
+  momentum: 0.9
+  aggregation: fedavg
+  device: auto
+  checkpoint_every: 5
+
+defense:
+  noise:
+    enabled: false
+    sigma: 0.0
+  clipping:
+    enabled: false
+    max_norm: 1.0
+
+attack:
+  enabled: true
+  model:
+    - random
+    - majority
+    - logistic
+    - rf
+    - mlp
+  collect_rounds: 8
+  eval_start_round: 9
+  grad_norm: l2
+  pca_components: 50
+  mlp_hidden_dim: 128
+  mlp_epochs: 50
+  gradient_store:
+    storage_type: raw
+    topk_ratio: 0.1
+
+logging:
+  log_dir: results/logs/
+  plot_dir: results/plots/
+  seed: 42

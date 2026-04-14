@@ -1,0 +1,73 @@
+# fl-privacy-project .gitignore
+
+# ── Python ───────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+*.so
+
+# ── Virtual environments ──────────────────────────────────────────
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ── Dataset (must be downloaded separately) ───────────────────────
+data/raw/UCI HAR Dataset/
+data/raw/*.zip
+data/raw/*.tar.gz
+# Keep the raw/ directory itself
+!data/raw/.gitkeep
+
+# ── Experiment outputs (large; not version-controlled) ───────────
+results/logs/*/              # individual run directories
+results/plots/*.png
+results/plots/*.pdf
+results/plots/*.csv
+# Keep directory structure
+!results/logs/.gitkeep
+!results/plots/.gitkeep
+
+# ── PyTorch / model artefacts ────────────────────────────────────
+*.pt
+*.pth
+*.ckpt
+*.bin
+
+# ── Jupyter ──────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── IDE / OS ─────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Logs ─────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Coverage ─────────────────────────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/

@@ -1,0 +1,79 @@
+# configs/defense_ablation.yaml
+# ==============================
+# Defense ablation study base config.
+#
+# This file defines a SINGLE experimental condition.
+# scripts/reproduce_all.sh loops over defense parameters by passing
+# --override flags, e.g.:
+#
+#   python main.py --config configs/defense_ablation.yaml \
+#       --override "defense.noise.enabled=true" \
+#       --override "defense.noise.sigma=0.05"
+#
+# Alternatively, run the full ablation grid with:
+#   bash scripts/reproduce_all.sh
+#
+# Defense parameter grids (defined here for reference):
+#   noise sigma    : [0.001, 0.005, 0.01, 0.05, 0.1, 0.5]
+#   clipping norm  : [0.1, 0.5, 1.0, 2.0, 5.0]
+
+fast_dev: false
+
+dataset:
+  name: synthetic
+  path: data/raw/
+  n_clients: 10
+  partition_strategy: dirichlet
+  partition_params:
+    alpha: 0.5              # moderate heterogeneity
+    n_samples: 5000
+
+model:
+  arch: mlp
+  input_dim: 561
+  hidden_dims: [256, 128]
+  num_classes: 6
+  dropout: 0.3
+
+training:
+  rounds: 20
+  local_epochs: 5
+  batch_size: 32
+  lr: 0.01
+  optimizer: sgd
+  momentum: 0.9
+  aggregation: fedavg
+  device: auto
+  checkpoint_every: 5
+
+# Default: both defenses ON (specific values overridden at runtime)
+defense:
+  noise:
+    enabled: true
+    sigma: 0.01             # override: 0.001 | 0.005 | 0.01 | 0.05 | 0.1 | 0.5
+  clipping:
+    enabled: true
+    max_norm: 1.0           # override: 0.1 | 0.5 | 1.0 | 2.0 | 5.0
+
+attack:
+  enabled: true
+  model:
+    - random
+    - majority
+    - logistic
+    - rf
+    - mlp
+  collect_rounds: 8
+  eval_start_round: 9
+  grad_norm: l2
+  pca_components: 50
+  mlp_hidden_dim: 128
+  mlp_epochs: 30
+  gradient_store:
+    storage_type: topk      # use topk to reduce storage for ablation grid
+    topk_ratio: 0.1
+
+logging:
+  log_dir: results/logs/
+  plot_dir: results/plots/
+  seed: 42

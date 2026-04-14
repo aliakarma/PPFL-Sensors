@@ -71,10 +71,6 @@ class GradientInferenceAttack:
         self._is_trained: bool = False
         self._train_accuracies: Dict[str, float] = {}
 
-        # Leakage prevention tracking
-        self._train_ids: List[str] = []
-        self._eval_ids: List[str] = []
-
         # Accumulate eval-phase samples for evaluate_all_attack_models()
         self._eval_X: List[np.ndarray] = []
         self._eval_y: List[int] = []
@@ -124,7 +120,6 @@ class GradientInferenceAttack:
                 client_id=update.client_id,
                 flat_grad=update.defended_gradients,   # = defended weight_delta
             )
-            self._train_ids.append(f"round_{round_idx}_client_{update.client_id}")
 
     # ------------------------------------------------------------------
     # Phase 2: train

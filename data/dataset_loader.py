@@ -239,33 +239,15 @@ def partition_dirichlet(
         rng.shuffle(cls_idx)
         # Draw proportions from Dirichlet
         proportions = rng.dirichlet(np.repeat(alpha, n_clients))
-        proportions = np.array(
-            [p * (len(ci) < len(X) / n_clients) for p, ci in zip(proportions, client_indices)]
-        )
-        # Re-normalise after zeroing
-        if proportions.sum() == 0:
-            proportions = np.ones(n_clients) / n_clients
-        else:
-            proportions = proportions / proportions.sum()
-
-        splits = (proportions * len(cls_idx)).astype(int)
-        splits[-1] = len(cls_idx) - splits[:-1].sum()  # fix rounding
-
-        start = 0
-        for cid, count in enumerate(splits):
-            client_indices[cid].extend(cls_idx[start: start + count].tolist())
-            start += count
-
-    # Guarantee minimum samples per client (redistribute from largest)
-    for cid in range(n_clients):
-        while len(client_indices[cid]) < min_samples:
-            donor = max(range(n_clients), key=lambda c: len(client_indices[c]))
-            if len(client_indices[donor]) <= min_samples:
-                break
-            client_indices[cid].append(client_indices[donor].pop())
+        # exact allocation
+        splits = (np.cumsum(proportions) * len(cls_idx)).astype(int)
+        splits = np.insert(splits, 0, 0)
+        splits[-1] = len(cls_idx)
+        
+        for cid in range(n_clients):
+            client_indices[cid].extend(cls_idx[splits[cid]:splits[cid+1]].tolist())
 
     return [(X[np.array(idx)], y[np.array(idx)]) for idx in client_indices]
-
 
 def partition_pathological(
     X: np.ndarray,
@@ -292,28 +274,38 @@ def partition_pathological(
     for cls in classes:
         rng.shuffle(class_indices[cls])
 
-    # Assign class sets to clients (round-robin over shuffled classes)
-    shuffled_classes = rng.permutation(classes)
-    assignments = []  # list of sets of class labels per client
+    client_indices: List[List[int]] = [[] for _ in range(n_clients)]
+
+    # Assign classes to clients and divide chunks cleanly without duplication
+    client_classes = [rng.choice(classes, classes_per_client, replace=False) for _ in range(n_clients)]
+    
+    # Calculate how many clients need each class to split fairly
+    class_splits = {cls: 0 for cls in classes}
     for cid in range(n_clients):
-        start = (cid * classes_per_client) % n_classes
-        assigned = [
-            shuffled_classes[(start + i) % n_classes]
-            for i in range(classes_per_client)
-        ]
-        assignments.append(assigned)
+        for cls in client_classes[cid]:
+            class_splits[cls] += 1
+            
+    # Track current split offset for each class
+    class_current_offset = {cls: 0 for cls in classes}
 
-    result = []
-    for assigned_classes in assignments:
-        idx_list = []
-        for cls in assigned_classes:
+    for cid in range(n_clients):
+        for cls in client_classes[cid]:
             pool = class_indices[cls]
-            chunk_size = max(1, len(pool) // n_clients)
-            idx_list.extend(pool[:chunk_size])
-        idx_arr = np.array(idx_list)
-        result.append((X[idx_arr], y[idx_arr]))
+            num_splits = class_splits[cls]
+            
+            # Divide into non-overlapping chunks
+            chunk_size = len(pool) // num_splits
+            start_idx = class_current_offset[cls] * chunk_size
+            end_idx = start_idx + chunk_size
+            
+            # If it's the last split for this class, give remainder
+            if class_current_offset[cls] == num_splits - 1:
+                end_idx = len(pool)
+                
+            client_indices[cid].extend(pool[start_idx:end_idx])
+            class_current_offset[cls] += 1
 
-    return result
+    return [(X[np.array(idx)], y[np.array(idx)]) for idx in client_indices]
 
 
 def partition_quantity_skew(
@@ -412,20 +404,9 @@ def get_client_datasets(config) -> List[ClientDataset]:
                 ds_cfg.path
             ).load()
         except FileNotFoundError:
-            logger.warning("HAR not found; falling back to synthetic.")
-            X_all, y_all, X_test_global, y_test_global = SyntheticLoader(
-                seed=seed
-            ).load()
+            raise RuntimeError("HAR dataset required. Please run scripts/download_har.py to download it.")
     else:
-        n_samples = params.get("n_samples", 5000)
-        n_features = getattr(ds_cfg, "input_dim", 561) if hasattr(ds_cfg, "input_dim") else 561
-        n_classes = getattr(config.model, "num_classes", 6)
-        X_all, y_all, X_test_global, y_test_global = SyntheticLoader(
-            n_samples=n_samples,
-            n_features=n_features,
-            n_classes=n_classes,
-            seed=seed,
-        ).load()
+        raise RuntimeError("HAR dataset required. Set dataset.name='har' in config and run scripts/download_har.py to download it.")
 
     # 2. Partition training data
     logger.info("Partitioning %d samples across %d clients using '%s'",

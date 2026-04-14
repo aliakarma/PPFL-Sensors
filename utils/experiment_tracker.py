@@ -44,6 +44,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 
+import hashlib
 from utils.config import config_to_dict
 from utils.gradient_processing import compress_gradient
 
@@ -81,6 +82,8 @@ class GradientStore:
 
         # In-memory index: list of (round, client_id, path) for train set
         self._train_index: List[Dict] = []
+        self._train_hashes: set = set()
+        self._eval_hashes: set = set()
 
     def should_store(self, round_idx: int) -> bool:
         """True iff this round falls within the collection window."""
@@ -97,8 +100,10 @@ class GradientStore:
 
         Returns the file path if stored, else None.
         """
-        if not self.should_store(round_idx):
-            return None
+        assert round_idx <= self.collect_rounds, "Attempted to store eval-phase data in training store"
+        
+        grad_hash = hashlib.sha256(flat_grad.cpu().numpy().tobytes()).hexdigest()
+        assert grad_hash not in self._eval_hashes, "Data leakage: Gradient already seen in evaluation phase!"
 
         fname = f"round_{round_idx:04d}_client_{client_id:03d}.pt"
         fpath = os.path.join(self.grad_dir, fname)
@@ -123,7 +128,17 @@ class GradientStore:
         self._train_index.append(
             {"round": round_idx, "client_id": client_id, "path": fpath}
         )
+        self._train_hashes.add(grad_hash)
+        assert self._train_hashes.isdisjoint(self._eval_hashes), "CRITICAL: Overlap between stored train and eval IDs"
+        
         return fpath
+
+    def register_eval_hash(self, flat_grad: torch.Tensor) -> None:
+        """Registers an evaluation gradient to ensure it never leaks into training data."""
+        grad_hash = hashlib.sha256(flat_grad.cpu().numpy().tobytes()).hexdigest()
+        assert grad_hash not in self._train_hashes, "Data leakage: Eval gradient already present in training store!"
+        self._eval_hashes.add(grad_hash)
+        assert self._train_hashes.isdisjoint(self._eval_hashes), "CRITICAL: Overlap between stored train and eval IDs"
 
     def load(self, path: str) -> torch.Tensor:
         """

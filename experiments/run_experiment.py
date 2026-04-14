@@ -137,7 +137,7 @@ def run(config_path: str, override: dict = None, fast_dev: bool = False,
             if round_idx <= collect_rounds:
                 attack.collect(round_idx, updates)
                 if round_idx == collect_rounds:
-                    run_log.info("Finished collect phase with %d samples logged", len(attack._train_ids))
+                    run_log.info("Finished collect phase")
             elif round_idx == train_round:
                 attack.train()
                 run_log.info("Finished train phase")
@@ -146,7 +146,6 @@ def run(config_path: str, override: dict = None, fast_dev: bool = False,
                 if atk_results:
                     mean_acc = atk_results.get("mean_attack_accuracy", 0.0)
                     metrics.update_attack(round_idx, mean_acc)
-                run_log.info("Eval phase running with %d accumulated samples logging", len(attack._eval_ids))
 
         run_log.info(
             "Round %d/%d  fl_acc=%.4f  fl_loss=%.4f",

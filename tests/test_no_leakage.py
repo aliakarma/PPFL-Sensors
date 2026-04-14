@@ -6,6 +6,8 @@ from unittest.mock import MagicMock
 
 from attack.inference_attack import GradientInferenceAttack
 from client.client import ClientUpdate
+from utils.experiment_tracker import GradientStore
+import os
 
 class TestNoLeakage(unittest.TestCase):
     def setUp(self):
@@ -25,12 +27,14 @@ class TestNoLeakage(unittest.TestCase):
         )
 
         self.tracker = MagicMock()
-        self.tracker.gradient_store = MagicMock()
+        # Initialize real GradientStore for genuine leakage test
+        os.makedirs("test_artifacts", exist_ok=True)
+        self.tracker.gradient_store = GradientStore(artifact_dir="test_artifacts", collect_rounds=5, storage_type="raw")
 
         # Dummy dataset
-        self.tracker.gradient_store.get_train_dataset.return_value = (
+        self.tracker.gradient_store.get_train_dataset = MagicMock(return_value=(
             torch.randn(10, 100), torch.randint(0, 2, (10,))
-        )
+        ))
 
         self.attack = GradientInferenceAttack(self.config, self.tracker)
 
@@ -57,17 +61,25 @@ class TestNoLeakage(unittest.TestCase):
             elif round_idx >= eval_start_round:
                 self.attack.evaluate(round_idx, updates)
 
-        # Ensure train_ids is disjoint from eval_ids
-        self.assertTrue(set(self.attack._train_ids).isdisjoint(set(self.attack._eval_ids)))
-        self.assertEqual(len(self.attack._train_ids), 10)  # 5 rounds * 2 clients
-        self.assertEqual(len(self.attack._eval_ids), 8)    # 4 rounds (7-10) * 2 clients
+        # Hash-level disjointness inherently asserted via GradientStore._train_hashes and _eval_hashes
+        self.assertTrue(self.tracker.gradient_store._train_hashes.isdisjoint(self.tracker.gradient_store._eval_hashes))
+        self.assertEqual(len(self.tracker.gradient_store._train_hashes), 10)  # 5 rounds * 2 clients
+        self.assertEqual(len(self.tracker.gradient_store._eval_hashes), 8)    # 4 rounds (7-10) * 2 clients
 
     def test_prevent_eval_store(self):
         # Attempt to store gradient from an evaluation round
         update = [ClientUpdate(client_id=0, defended_gradients=torch.randn(100), num_samples=100)]
         self.attack.collect(10, update) # Since collect_rounds=5
         
-        self.assertEqual(len(self.attack._train_ids), 0)
+        self.assertEqual(len(self.tracker.gradient_store._train_hashes), 0)
+
+    def test_adversarial_leakage_rejection(self):
+        # Try forcing identical eval data directly into the collect store tracking
+        bad_tensor = torch.randn(100)
+        self.tracker.gradient_store.register_eval_hash(bad_tensor)
+        
+        with self.assertRaises(AssertionError):
+            self.tracker.gradient_store.store(1, 0, bad_tensor)
 
 if __name__ == '__main__':
     unittest.main()

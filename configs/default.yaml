@@ -10,7 +10,7 @@
 fast_dev: false
 
 dataset:
-  name: synthetic           # "har" requires UCI HAR in data/raw/
+  name: har                 # "har" requires UCI HAR in data/raw/
   path: data/raw/
   n_clients: 10
   partition_strategy: dirichlet   # PRIMARY: non-IID, realistic threat

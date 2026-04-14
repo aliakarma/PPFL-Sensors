@@ -71,6 +71,10 @@ class GradientInferenceAttack:
         self._is_trained: bool = False
         self._train_accuracies: Dict[str, float] = {}
 
+        # Leakage prevention tracking
+        self._train_ids: List[str] = []
+        self._eval_ids: List[str] = []
+
         # Accumulate eval-phase samples for evaluate_all_attack_models()
         self._eval_X: List[np.ndarray] = []
         self._eval_y: List[int] = []
@@ -95,6 +99,9 @@ class GradientInferenceAttack:
     def is_eval_phase(self, round_idx: int) -> bool:
         return round_idx >= self._eval_start
 
+    def should_store(self, round_idx: int) -> bool:
+        return round_idx <= self._collect_rounds
+
     # ------------------------------------------------------------------
     # Phase 1: collect  (FIXED C2: store weight_delta not last-batch grad)
     # ------------------------------------------------------------------
@@ -106,6 +113,10 @@ class GradientInferenceAttack:
         defended_gradients is the post-defense flattened weight_delta —
         exactly what the honest-but-curious server observes.
         """
+        if not self.should_store(round_idx):
+            logger.warning("Prevented storing gradients from round %d > collect_rounds", round_idx)
+            return
+
         store = self.tracker.gradient_store
         for update in updates:
             store.store(
@@ -113,6 +124,7 @@ class GradientInferenceAttack:
                 client_id=update.client_id,
                 flat_grad=update.defended_gradients,   # = defended weight_delta
             )
+            self._train_ids.append(f"round_{round_idx}_client_{update.client_id}")
 
     # ------------------------------------------------------------------
     # Phase 2: train
@@ -153,6 +165,11 @@ class GradientInferenceAttack:
     def evaluate(
         self, round_idx: int, updates: List[ClientUpdate]
     ) -> Dict[str, float]:
+        for update in updates:
+            self._eval_ids.append(f"round_{round_idx}_client_{update.client_id}")
+
+        assert set(self._train_ids).isdisjoint(set(self._eval_ids)), "CRITICAL DATA LEAKAGE DETECTED: Overlap between training and evaluation samples!"
+
         """Evaluate on this round's defended weight deltas."""
         if not self._is_trained:
             return {}

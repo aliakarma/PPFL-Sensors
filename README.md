@@ -45,7 +45,7 @@ PPFL-Sensors/
 ### 1. Install dependencies
 
 ```bash
-git clone https://github.com/aliakarma/fl-privacy-project.git
+git clone https://github.com/aliakarma/PPFL-Sensors
 cd fl-privacy-project
 pip install -r requirements.txt
 ```

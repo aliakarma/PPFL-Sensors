@@ -122,18 +122,31 @@ def run(config_path: str, override: dict = None, fast_dev: bool = False,
 
         # Attack pipeline
         if attack is not None:
-            if attack.is_collect_phase(round_idx):
-                attack.collect(round_idx, updates)
+            collect_rounds = attack._collect_rounds
+            train_round = attack._collect_rounds + 1
+            eval_start_round = attack._eval_start
 
-            if attack.is_train_round(round_idx):
+            if round_idx == 1:
+                assert train_round > collect_rounds, "Strict separation: Train round must be strictly after collect rounds"
+                assert eval_start_round > train_round, "Strict separation: Eval start round must be strictly after train round"
+                run_log.info(
+                    "Attack phases: Collect (1-%d), Train (%d), Eval (%d+)",
+                    collect_rounds, train_round, eval_start_round
+                )
+
+            if round_idx <= collect_rounds:
                 attack.collect(round_idx, updates)
+                if round_idx == collect_rounds:
+                    run_log.info("Finished collect phase with %d samples logged", len(attack._train_ids))
+            elif round_idx == train_round:
                 attack.train()
-
-            if attack.is_eval_phase(round_idx):
+                run_log.info("Finished train phase")
+            elif round_idx >= eval_start_round:
                 atk_results = attack.evaluate(round_idx, updates)
                 if atk_results:
                     mean_acc = atk_results.get("mean_attack_accuracy", 0.0)
                     metrics.update_attack(round_idx, mean_acc)
+                run_log.info("Eval phase running with %d accumulated samples logging", len(attack._eval_ids))
 
         run_log.info(
             "Round %d/%d  fl_acc=%.4f  fl_loss=%.4f",

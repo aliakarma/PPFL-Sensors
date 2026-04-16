@@ -83,20 +83,30 @@ class TestNoLeakage(unittest.TestCase):
         self.assertEqual(len(self.tracker.gradient_store._train_hashes), 10)  # 5 rounds * 2 clients
         self.assertEqual(len(self.tracker.gradient_store._eval_hashes), 8)    # 4 rounds (7-10) * 2 clients
 
-    def test_leakage_failure(self):
+    def test_pipeline_leakage_detection(self):
         grad = torch.randn(100)
         
-        # train
-        self.tracker.gradient_store.register_train_hash(grad)
+        # Test pipeline leakage properly through collect() and evaluate()
+        updates = [
+            ClientUpdate(
+                client_id=0, 
+                defended_gradients=grad, 
+                n_samples=100,
+                weight_delta=OrderedDict(),
+                raw_gradients=grad,
+                local_loss=0.5
+            )
+        ]
         
-        # eval (same gradient) - should raise AssertionError
+        # Round 1 -> train phase
+        self.attack.collect(1, updates)
+        
+        # Train attack models to enable evaluation
+        self.attack._is_trained = True
+        
+        # Round 7 -> eval phase with same gradient -> must raise AssertionError
         with self.assertRaises(AssertionError):
-            self.tracker.gradient_store.register_eval_hash(grad)
-            
-        # Bypass protection to just manually verify the disjointness logic if they were to get in
-        grad_hash = self.tracker.gradient_store._train_hashes.copy().pop()
-        self.tracker.gradient_store._eval_hashes.add(grad_hash)
-        self.assertFalse(self.tracker.gradient_store._train_hashes.isdisjoint(self.tracker.gradient_store._eval_hashes))
+            self.attack.evaluate(7, updates)
 
     def test_prevent_eval_store(self):
         # Attempt to store gradient from an evaluation round

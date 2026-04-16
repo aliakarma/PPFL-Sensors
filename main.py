@@ -211,6 +211,15 @@ def _run_multi_seed(config_path, override, fast_dev, n_seeds):
             logging.exception("Seed %d failed: %s", seed, exc)
             
     if summaries:
+        # Check standard deviation to prevent invalid identical runs showing up
+        keys = ["final_fl_accuracy", "mean_attack_accuracy", "final_privacy_score", "mean_normalized_attacker_advantage"]
+        for k in keys:
+            vals = [s[k] for s in summaries if s.get(k) is not None]
+            if len(vals) >= 2:
+                import collections
+                if len(set(vals)) == 1:
+                    raise AssertionError("Invalid results: identical across seeds")
+
         # Save structured multi-seed results
         results_dir = summaries[0].get("run_dir", "results/logs/").rsplit('/', 1)[0]
         os.makedirs(results_dir, exist_ok=True)

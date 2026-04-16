@@ -47,13 +47,8 @@ def compute_normalized_attacker_advantage(
     Normalized Attacker Advantage (NAA).
 
     NAA = (attack_acc − random_baseline) / (1 − random_baseline)
-
-    Interpretation
-    --------------
-    0.0  → attacker no better than random/baseline (no privacy violation)
-    1.0  → attacker identifies every client perfectly
-    Comparable across experiments with different n_clients.
     """
+    assert 0.0 <= baseline_accuracy <= 1.0, f"Invalid baseline accuracy: {baseline_accuracy}"
     denom = 1.0 - float(baseline_accuracy)
     if denom < 1e-10:
         return 0.0

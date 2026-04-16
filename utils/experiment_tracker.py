@@ -134,14 +134,16 @@ class GradientStore:
 
     def register_train_hash(self, flat_grad: torch.Tensor) -> None:
         """Registers a training gradient to prevent leakage."""
-        grad_hash = hashlib.sha256(flat_grad.cpu().numpy().tobytes()).hexdigest()
+        flat_grad = flat_grad.detach().cpu().float().contiguous()
+        grad_hash = hashlib.sha256(flat_grad.numpy().tobytes()).hexdigest()
         assert grad_hash not in self._eval_hashes, "Data leakage: Train gradient already seen in evaluation phase!"
         self._train_hashes.add(grad_hash)
         assert self._train_hashes.isdisjoint(self._eval_hashes), "CRITICAL: Overlap between stored train and eval IDs"
 
     def register_eval_hash(self, flat_grad: torch.Tensor) -> None:
         """Registers an evaluation gradient to ensure it never leaks into training data."""
-        grad_hash = hashlib.sha256(flat_grad.cpu().numpy().tobytes()).hexdigest()
+        flat_grad = flat_grad.detach().cpu().float().contiguous()
+        grad_hash = hashlib.sha256(flat_grad.numpy().tobytes()).hexdigest()
         assert grad_hash not in self._train_hashes, "Data leakage: Eval gradient already present in training store!"
         self._eval_hashes.add(grad_hash)
         assert self._train_hashes.isdisjoint(self._eval_hashes), "CRITICAL: Overlap between stored train and eval IDs"

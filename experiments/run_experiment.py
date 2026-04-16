@@ -88,6 +88,15 @@ def run(config_path: str, override: dict = None, fast_dev: bool = False,
     attack_enabled = getattr(cfg.attack, "enabled", True)
     attack = GradientInferenceAttack(cfg, tracker) if attack_enabled else None
 
+    if attack is not None:
+        collect_rounds = attack._collect_rounds
+        eval_start_round = attack._eval_start
+        assert eval_start_round > collect_rounds, (
+            f"Invalid config: eval_start ({eval_start_round}) must be greater than "
+            f"collect_rounds ({collect_rounds})"
+        )
+        assert collect_rounds < eval_start_round
+
     # Metrics tracker
     metrics = MetricsTracker(n_clients=cfg.dataset.n_clients)
 
@@ -123,16 +132,11 @@ def run(config_path: str, override: dict = None, fast_dev: bool = False,
         # Attack pipeline
         if attack is not None:
             collect_rounds = attack._collect_rounds
-            train_round = attack._collect_rounds + 1
+            train_round = collect_rounds + 1
             eval_start_round = attack._eval_start
 
-            if round_idx == 1:
-                assert train_round > collect_rounds, "Strict separation: Train round must be strictly after collect rounds"
-                assert eval_start_round > train_round, "Strict separation: Eval start round must be strictly after train round"
-                run_log.info(
-                    "Attack phases: Collect (1-%d), Train (%d), Eval (%d+)",
-                    collect_rounds, train_round, eval_start_round
-                )
+            phase = 'collect' if round_idx <= collect_rounds else 'train' if round_idx == train_round else 'eval' if round_idx >= eval_start_round else 'gap'
+            run_log.info(f"Round {round_idx}: phase={phase}")
 
             if round_idx <= collect_rounds:
                 attack.collect(round_idx, updates)

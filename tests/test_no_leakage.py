@@ -1,4 +1,5 @@
 import unittest
+from collections import OrderedDict
 from types import SimpleNamespace
 
 import torch
@@ -50,8 +51,22 @@ class TestNoLeakage(unittest.TestCase):
         for round_idx in range(1, 11):
             # Create mock updates
             updates = [
-                ClientUpdate(client_id=0, defended_gradients=torch.randn(100), num_samples=100),
-                ClientUpdate(client_id=1, defended_gradients=torch.randn(100), num_samples=100),
+                ClientUpdate(
+                    client_id=0, 
+                    defended_gradients=torch.randn(100), 
+                    n_samples=100,
+                    weight_delta=OrderedDict(),
+                    raw_gradients=torch.randn(100),
+                    local_loss=0.5
+                ),
+                ClientUpdate(
+                    client_id=1, 
+                    defended_gradients=torch.randn(100), 
+                    n_samples=100,
+                    weight_delta=OrderedDict(),
+                    raw_gradients=torch.randn(100),
+                    local_loss=0.5
+                ),
             ]
 
             if round_idx <= collect_rounds:
@@ -68,7 +83,14 @@ class TestNoLeakage(unittest.TestCase):
 
     def test_prevent_eval_store(self):
         # Attempt to store gradient from an evaluation round
-        update = [ClientUpdate(client_id=0, defended_gradients=torch.randn(100), num_samples=100)]
+        update = [ClientUpdate(
+            client_id=0, 
+            defended_gradients=torch.randn(100), 
+            n_samples=100,
+            weight_delta=OrderedDict(),
+            raw_gradients=torch.randn(100),
+            local_loss=0.5
+        )]
         self.attack.collect(10, update) # Since collect_rounds=5
         
         self.assertEqual(len(self.tracker.gradient_store._train_hashes), 0)

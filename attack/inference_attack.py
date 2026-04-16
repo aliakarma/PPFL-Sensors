@@ -169,8 +169,6 @@ class GradientInferenceAttack:
         for update in updates:
             self._eval_ids.append(f"round_{round_idx}_client_{update.client_id}")
 
-        assert set(self._train_ids).isdisjoint(set(self._eval_ids)), "CRITICAL DATA LEAKAGE DETECTED: Overlap between training and evaluation samples!"
-
         """Evaluate on this round's defended weight deltas."""
         if not self._is_trained:
             return {}
@@ -178,6 +176,14 @@ class GradientInferenceAttack:
         X_eval = torch.stack(
             [u.defended_gradients for u in updates], dim=0
         ).float()
+        
+        for u in updates:
+            self.tracker.gradient_store.register_eval_hash(u.defended_gradients)
+            
+        assert self.tracker.gradient_store._train_hashes.isdisjoint(
+            self.tracker.gradient_store._eval_hashes
+        ), "CRITICAL DATA LEAKAGE: Gradient hashes overlap between train and eval"
+
         y_eval = np.array([u.client_id for u in updates], dtype=np.int64)
 
         X_np = self._preprocess(X_eval, fit_pca=False)
@@ -262,7 +268,7 @@ class GradientInferenceAttack:
                     "accuracy": round(acc, 6),
                     "privacy_score": round(compute_privacy_score(acc), 6),
                     "normalized_attacker_advantage": round(
-                        compute_normalized_attacker_advantage(acc, self._n_clients), 6
+                        compute_normalized_attacker_advantage(acc, random_baseline_accuracy(self._n_clients)), 6
                     ),
                 }
         self.tracker.log_artifact("all_attack_model_comparison", comparison)

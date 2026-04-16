@@ -77,6 +77,7 @@ class TestNoLeakage(unittest.TestCase):
                 self.attack.evaluate(round_idx, updates)
 
         # Hash-level disjointness inherently asserted via GradientStore._train_hashes and _eval_hashes
+        self.assertTrue(len(self.tracker.gradient_store._eval_hashes) > 0, "Fail if eval hashes are not registered")
         self.assertTrue(self.tracker.gradient_store._train_hashes.isdisjoint(self.tracker.gradient_store._eval_hashes))
         self.assertEqual(len(self.tracker.gradient_store._train_hashes), 10)  # 5 rounds * 2 clients
         self.assertEqual(len(self.tracker.gradient_store._eval_hashes), 8)    # 4 rounds (7-10) * 2 clients

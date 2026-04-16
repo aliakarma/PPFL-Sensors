@@ -238,4 +238,4 @@ class TestPrivacyScore:
         assert compute_normalized_attacker_advantage(1.0, 0.1) == pytest.approx(1.0)
         # NAA=0.5 when attack is halfway between random and perfect
         expected = (0.55 - 0.1) / (1.0 - 0.1)
-        assert compute_normalized_attacker_advantage(0.55, 10) == pytest.approx(expected, abs=1e-5)
+        assert compute_normalized_attacker_advantage(0.55, 0.1) == pytest.approx(expected, abs=1e-5)

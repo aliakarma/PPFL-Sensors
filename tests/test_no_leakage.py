@@ -77,10 +77,26 @@ class TestNoLeakage(unittest.TestCase):
                 self.attack.evaluate(round_idx, updates)
 
         # Hash-level disjointness inherently asserted via GradientStore._train_hashes and _eval_hashes
-        self.assertTrue(len(self.tracker.gradient_store._eval_hashes) > 0, "Fail if eval hashes are not registered")
+        self.assertTrue(len(self.tracker.gradient_store._train_hashes) > 0)
+        self.assertTrue(len(self.tracker.gradient_store._eval_hashes) > 0)
         self.assertTrue(self.tracker.gradient_store._train_hashes.isdisjoint(self.tracker.gradient_store._eval_hashes))
         self.assertEqual(len(self.tracker.gradient_store._train_hashes), 10)  # 5 rounds * 2 clients
         self.assertEqual(len(self.tracker.gradient_store._eval_hashes), 8)    # 4 rounds (7-10) * 2 clients
+
+    def test_leakage_failure(self):
+        grad = torch.randn(100)
+        
+        # train
+        self.tracker.gradient_store.register_train_hash(grad)
+        
+        # eval (same gradient) - should raise AssertionError
+        with self.assertRaises(AssertionError):
+            self.tracker.gradient_store.register_eval_hash(grad)
+            
+        # Bypass protection to just manually verify the disjointness logic if they were to get in
+        grad_hash = self.tracker.gradient_store._train_hashes.copy().pop()
+        self.tracker.gradient_store._eval_hashes.add(grad_hash)
+        self.assertFalse(self.tracker.gradient_store._train_hashes.isdisjoint(self.tracker.gradient_store._eval_hashes))
 
     def test_prevent_eval_store(self):
         # Attempt to store gradient from an evaluation round

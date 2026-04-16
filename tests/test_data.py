@@ -7,7 +7,7 @@ class TestDataPartitioning(unittest.TestCase):
     def setUp(self):
         self.rng = np.random.default_rng(42)
         # Using synthetic data directly for unit testing
-        self.X, self.y, _, _ = SyntheticLoader(n_samples=1000, n_features=100, n_classes=4, seed=42).load()
+        self.X, self.y, _, _ = SyntheticLoader(n_samples=1000, n_features=10, n_classes=4, seed=42).load()
         self.n_clients = 3
 
     def _verify_disjointness_and_coverage(self, partitions, total_samples):

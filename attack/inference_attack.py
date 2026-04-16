@@ -118,6 +118,7 @@ class GradientInferenceAttack:
 
         store = self.tracker.gradient_store
         for update in updates:
+            store.register_train_hash(update.defended_gradients)
             store.store(
                 round_idx=round_idx,
                 client_id=update.client_id,
@@ -179,6 +180,9 @@ class GradientInferenceAttack:
         
         for u in updates:
             self.tracker.gradient_store.register_eval_hash(u.defended_gradients)
+            
+        assert len(self.tracker.gradient_store._train_hashes) > 0, "Train hashes missing"
+        assert len(self.tracker.gradient_store._eval_hashes) > 0, "Eval hashes missing"
             
         assert self.tracker.gradient_store._train_hashes.isdisjoint(
             self.tracker.gradient_store._eval_hashes

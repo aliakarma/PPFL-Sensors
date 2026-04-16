@@ -185,7 +185,7 @@ class SyntheticLoader:
         X, y = make_classification(
             n_samples=self.n_samples,
             n_features=self.n_features,
-            n_informative=max(20, self.n_features // 5),
+            n_informative=min(self.n_features // 2, max(20, self.n_features // 5)),
             n_redundant=self.n_features // 10,
             n_classes=self.n_classes,
             n_clusters_per_class=1,

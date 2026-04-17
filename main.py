@@ -130,8 +130,10 @@ def main():
         for sigma in noise_levels:
             print(f"\n--- Noise Level: sigma={sigma} ---")
             override_ns = _parse_set_args(args.set_args or [])
-            override_ns["dataset"] = {"name": "har"}
-            override_ns["defense"] = {"noise": {"enabled": True, "sigma": sigma}}
+            override_ns.setdefault("dataset", {})["name"] = "har"
+            override_ns.setdefault("defense", {})["noise"] = {"enabled": True, "sigma": sigma}
+            
+            print("DEBUG SWEEP CONFIG:", override_ns.get("dataset", {}))
             
             summaries = _run_multi_seed(args.config, override_ns, args.fast_dev, args.n_seeds)
             

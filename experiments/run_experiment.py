@@ -63,6 +63,8 @@ def run(config_path: str, override: dict = None, fast_dev: bool = False,
     init_device(getattr(cfg.training, "device", "auto"))
     run_log.info("Device: %s", device_info())
 
+    print("DEBUG CONFIG:", cfg.dataset.partition_strategy)
+
     # Data
     run_log.info("Loading dataset (partition=%s)…",
                  getattr(cfg.dataset, "partition_strategy", "iid"))

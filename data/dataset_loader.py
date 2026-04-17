@@ -8,7 +8,7 @@ Partition strategies
 --------------------
 1. iid              — uniform random split                  (McMahan 2017)
 2. dirichlet        — label-proportion skew via Dir(alpha)  (most used today)
-3. pathological     — each client gets only K classes       (McMahan 2017 non-IID)
+3. pathological     — shard-based label skew                 (McMahan 2017 non-IID)
 4. quantity_skew    — unequal sample counts via Dir(beta)
 5. feature_skew     — per-client Gaussian feature noise
 
@@ -253,59 +253,42 @@ def partition_pathological(
     X: np.ndarray,
     y: np.ndarray,
     n_clients: int,
-    classes_per_client: int,
+    shards_per_client: int,
     rng: np.random.Generator,
 ) -> List[Tuple[np.ndarray, np.ndarray]]:
     """
-    Each client receives data from exactly ``classes_per_client`` classes.
-    Original McMahan (2017) non-IID setup.
+    Standard shard-based pathological partition.
+
+    Data are sorted by label, split into ``n_clients * shards_per_client``
+    contiguous shards, and each client receives a small random subset of shards.
+    This produces strong label skew when label blocks are larger than the
+    shard size.
     """
-    classes = np.unique(y)
-    n_classes = len(classes)
-    if classes_per_client > n_classes:
-        logger.warning(
-            "classes_per_client=%d > n_classes=%d; clamping.",
-            classes_per_client, n_classes,
+    labels = np.asarray(y, dtype=np.int64)
+    n_shards = n_clients * shards_per_client
+
+    idxs = np.arange(len(labels))
+    idxs_labels = np.vstack((idxs, labels))
+    idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
+    sorted_idxs = idxs_labels[0]
+
+    shards = np.array_split(sorted_idxs, n_shards)
+    client_data: List[List[int]] = [[] for _ in range(n_clients)]
+    shard_indices = rng.permutation(n_shards)
+
+    for cid in range(n_clients):
+        assigned = shard_indices[cid * shards_per_client:(cid + 1) * shards_per_client]
+        for shard_id in assigned:
+            client_data[cid].extend(shards[shard_id])
+
+    num_classes = int(labels.max()) + 1 if labels.size else 0
+    for cid, client_idxs in enumerate(client_data):
+        print(
+            f"Client {cid} label distribution:",
+            np.bincount(labels[np.asarray(client_idxs, dtype=np.int64)], minlength=num_classes),
         )
-        classes_per_client = n_classes
 
-    # Build per-class index lists
-    class_indices = {cls: np.where(y == cls)[0].tolist() for cls in classes}
-    for cls in classes:
-        rng.shuffle(class_indices[cls])
-
-    client_indices: List[List[int]] = [[] for _ in range(n_clients)]
-
-    # Assign classes to clients and divide chunks cleanly without duplication
-    client_classes = [rng.choice(classes, classes_per_client, replace=False) for _ in range(n_clients)]
-    
-    # Calculate how many clients need each class to split fairly
-    class_splits = {cls: 0 for cls in classes}
-    for cid in range(n_clients):
-        for cls in client_classes[cid]:
-            class_splits[cls] += 1
-            
-    # Track current split offset for each class
-    class_current_offset = {cls: 0 for cls in classes}
-
-    for cid in range(n_clients):
-        for cls in client_classes[cid]:
-            pool = class_indices[cls]
-            num_splits = class_splits[cls]
-            
-            # Divide into non-overlapping chunks
-            chunk_size = len(pool) // num_splits
-            start_idx = class_current_offset[cls] * chunk_size
-            end_idx = start_idx + chunk_size
-            
-            # If it's the last split for this class, give remainder
-            if class_current_offset[cls] == num_splits - 1:
-                end_idx = len(pool)
-                
-            client_indices[cid].extend(pool[start_idx:end_idx])
-            class_current_offset[cls] += 1
-
-    return [(X[np.array(idx)], y[np.array(idx)]) for idx in client_indices]
+    return [(X[np.array(idx)], y[np.array(idx)]) for idx in client_data]
 
 
 def partition_quantity_skew(
@@ -416,6 +399,9 @@ def get_client_datasets(config) -> List[ClientDataset]:
     logger.info("Partitioning %d samples across %d clients using '%s'",
                 len(X_all), n_clients, strategy)
 
+    print("DEBUG LOADER STRATEGY:", strategy)
+    assert strategy in ["iid", "pathological", "dirichlet", "quantity_skew", "feature_skew"], f"Unknown strategy: {strategy}"
+
     if strategy == "iid":
         partitions = partition_iid(X_all, y_all, n_clients, rng)
 
@@ -424,8 +410,9 @@ def get_client_datasets(config) -> List[ClientDataset]:
         partitions = partition_dirichlet(X_all, y_all, n_clients, alpha, rng)
 
     elif strategy == "pathological":
-        cpc = params.get("classes_per_client", 2)
-        partitions = partition_pathological(X_all, y_all, n_clients, cpc, rng)
+        print("USING PATHOLOGICAL PARTITION")
+        shards_per_client = params.get("classes_per_client", 2)
+        partitions = partition_pathological(X_all, y_all, n_clients, shards_per_client, rng)
 
     elif strategy == "quantity_skew":
         beta = params.get("beta", 0.5)

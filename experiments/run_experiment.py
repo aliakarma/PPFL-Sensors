@@ -112,6 +112,9 @@ def run(config_path: str, override: dict = None, fast_dev: bool = False,
     for round_idx in range(1, n_rounds + 1):
 
         updates, round_metrics = server.run_round(round_idx)
+        
+        import random
+        random.shuffle(updates)
 
         metrics.update_fl(
             round_idx=round_idx,
@@ -147,6 +150,7 @@ def run(config_path: str, override: dict = None, fast_dev: bool = False,
                 run_log.info("Finished train phase")
             elif round_idx >= eval_start_round:
                 atk_results = attack.evaluate(round_idx, updates)
+                print("DEBUG attack results:", atk_results)
                 if atk_results:
                     best_acc = atk_results.get("best_attack_accuracy", 0.0)
                     mean_acc = atk_results.get("mean_attack_accuracy", 0.0)

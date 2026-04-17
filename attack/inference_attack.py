@@ -178,6 +178,17 @@ class GradientInferenceAttack:
             [u.defended_gradients for u in updates], dim=0
         ).float()
         
+        # Test 4 Cross-Client Mixing Test
+        n_mix = X_eval.shape[0]
+        for i in range(n_mix):
+            idx1 = np.random.randint(n_mix)
+            idx2 = np.random.randint(n_mix)
+            X_eval[i] = 0.5 * X_eval[idx1] + 0.5 * X_eval[idx2]
+        np.random.shuffle(updates)
+        y_eval = np.array([u.client_id for u in updates], dtype=np.int64)
+        
+        print("Gradient stats:", X_eval.mean(), X_eval.std())
+
         for u in updates:
             self.tracker.gradient_store.register_eval_hash(u.raw_gradients)
             
@@ -187,8 +198,6 @@ class GradientInferenceAttack:
         assert self.tracker.gradient_store._train_hashes.isdisjoint(
             self.tracker.gradient_store._eval_hashes
         ), "CRITICAL DATA LEAKAGE: Gradient hashes overlap between train and eval"
-
-        y_eval = np.array([u.client_id for u in updates], dtype=np.int64)
 
         X_np = self._preprocess(X_eval, fit_pca=False)
 
@@ -221,7 +230,7 @@ class GradientInferenceAttack:
                            best_train_acc, best_acc, gap)
 
         mean_acc = float(np.mean(accs_real)) if accs_real else 0.0
-        base_acc = float(np.mean(accs_base)) if accs_base else random_baseline_accuracy(self._n_clients)
+        base_acc = random_baseline_accuracy(self._n_clients)
 
         results["best_attack_accuracy"] = round(best_acc, 6)
         results["mean_attack_accuracy"] = round(mean_acc, 6)
@@ -288,6 +297,9 @@ class GradientInferenceAttack:
         normed = torch.stack(
             [normalize_gradient(x, method=self._norm_method) for x in X], dim=0
         ).numpy()
+        
+        # Test 3: Global Normalization 
+        normed = (normed - normed.mean(axis=0, keepdims=True)) / (normed.std(axis=0, keepdims=True) + 1e-8)
 
         if self._pca_components > 0:
             if fit_pca:

@@ -131,12 +131,14 @@ class MetricsTracker:
     def summary(self) -> Dict:
         fl_accs = [r.fl_accuracy for r in self.records if r.fl_accuracy is not None]
         best_atk_accs = [r.best_attack_accuracy for r in self.records if r.best_attack_accuracy is not None]
+        mean_atk_accs = [r.mean_attack_accuracy for r in self.records if r.mean_attack_accuracy is not None]
         naa_vals = [r.normalized_attacker_advantage for r in self.records
                     if r.normalized_attacker_advantage is not None]
 
         best_fl_acc = max(fl_accs) if fl_accs else None
         final_fl_acc = fl_accs[-1] if fl_accs else None
         mean_best_atk_acc = float(np.mean(best_atk_accs)) if best_atk_accs else None
+        mean_atk_acc = float(np.mean(mean_atk_accs)) if mean_atk_accs else None
         mean_naa = float(np.mean(naa_vals)) if naa_vals else None
         final_privacy = compute_privacy_score(mean_best_atk_acc) if mean_best_atk_acc is not None else None
         random_bl = random_baseline_accuracy(self.n_clients)
@@ -145,6 +147,7 @@ class MetricsTracker:
             "best_fl_accuracy": best_fl_acc,
             "final_fl_accuracy": final_fl_acc,
             "mean_best_attack_accuracy": mean_best_atk_acc,
+            "mean_attack_accuracy": mean_atk_acc,
             "mean_normalized_attacker_advantage": mean_naa,
             "final_privacy_score": final_privacy,
             "random_baseline_attack_accuracy": random_bl,
